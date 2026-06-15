@@ -1,0 +1,5 @@
+features/
+edaic_segments/
+__pycache__/
+.DS_Store
+*.csv
