@@ -1,6 +1,6 @@
 # Temporal Pooling Benchmark
 
-This project compares different ways to group audio segments for detecting depression. We use WavLM to get audio features for 10 second clips, and then we test different deep learning models to see which one works best for summarizing an entire 15 minute clinical interview.
+This paper compares different ways to group audio segments for detecting depression. We use WavLM to get audio features for 10 second clips, and then we test different deep learning models to see which one works best for summarizing an entire 15 minute clinical interview.
 
 ## How It Works
 
