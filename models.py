@@ -2,18 +2,39 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class MeanPoolingNet(nn.Module):
-    def __init__(self, input_dim=768, num_classes=2):
+class Featurizer(nn.Module):
+    """
+    Learnable Featurizer module to compute a weighted sum of all hidden layers
+    from frozen speech SSL models (semi-fine-tuning).
+    """
+    def __init__(self, num_layers, input_dim, projector_dim=256):
         super().__init__()
+        # Softmax-weighted learnable parameters for each layer
+        self.weights = nn.Parameter(torch.zeros(num_layers))
+        self.proj = nn.Linear(input_dim, projector_dim)
+        
+    def forward(self, x):
+        # x shape: [B, T, num_layers, input_dim]
+        soft_weights = F.softmax(self.weights, dim=0)
+        # Weighted sum: [B, T, input_dim]
+        weighted = torch.sum(x * soft_weights.view(1, 1, -1, 1), dim=2)
+        # Projection to project_dim
+        return self.proj(weighted)
+
+class MeanPoolingNet(nn.Module):
+    def __init__(self, num_layers, input_dim, projector_dim=256, num_classes=2):
+        super().__init__()
+        self.featurizer = Featurizer(num_layers, input_dim, projector_dim)
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),
-            nn.Linear(input_dim, 64),
+            nn.Linear(projector_dim, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
         )
         
     def forward(self, x, mask=None):
-        # x: [B, T, D], mask: [B, T]
+        x = self.featurizer(x) # [B, T, projector_dim]
+        
         if mask is not None:
             mask = mask.unsqueeze(-1)
             x = x * mask
@@ -26,17 +47,19 @@ class MeanPoolingNet(nn.Module):
         return self.classifier(pooled)
 
 class StatisticalPoolingNet(nn.Module):
-    def __init__(self, input_dim=768, num_classes=2):
+    def __init__(self, num_layers, input_dim, projector_dim=256, num_classes=2):
         super().__init__()
+        self.featurizer = Featurizer(num_layers, input_dim, projector_dim)
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),
-            nn.Linear(input_dim * 4, 128),
+            nn.Linear(projector_dim * 4, 128),
             nn.ReLU(),
             nn.Dropout(0.2),
             nn.Linear(128, num_classes)
         )
         
     def forward(self, x, mask=None):
+        x = self.featurizer(x) # [B, T, projector_dim]
         if mask is not None:
             mask_expanded = mask.unsqueeze(-1) # [B, T, 1]
             x_masked = x * mask_expanded
@@ -51,7 +74,6 @@ class StatisticalPoolingNet(nn.Module):
             std = torch.sqrt(var + 1e-6)
             
             # Max and Min (need to handle padding carefully for max/min)
-            # Replace padded values with very small/large numbers
             x_max_masked = x.masked_fill(mask_expanded == 0, -1e9)
             max_val, _ = x_max_masked.max(dim=1)
             
@@ -69,21 +91,23 @@ class StatisticalPoolingNet(nn.Module):
         return self.classifier(pooled)
 
 class SelfAttentionPoolingNet(nn.Module):
-    def __init__(self, input_dim=768, hidden_dim=128, num_classes=2):
+    def __init__(self, num_layers, input_dim, projector_dim=256, hidden_dim=128, num_classes=2):
         super().__init__()
+        self.featurizer = Featurizer(num_layers, input_dim, projector_dim)
         self.attention = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
+            nn.Linear(projector_dim, hidden_dim),
             nn.Tanh(),
             nn.Linear(hidden_dim, 1)
         )
         self.classifier = nn.Sequential(
             nn.Dropout(0.3),
-            nn.Linear(input_dim, 64),
+            nn.Linear(projector_dim, 64),
             nn.ReLU(),
             nn.Linear(64, num_classes)
         )
         
     def forward(self, x, mask=None):
+        x = self.featurizer(x)
         attn_logits = self.attention(x) # [B, T, 1]
         
         if mask is not None:
@@ -94,16 +118,17 @@ class SelfAttentionPoolingNet(nn.Module):
         return self.classifier(pooled)
 
 class TransformerPoolingNet(nn.Module):
-    def __init__(self, input_dim=768, bottleneck_dim=64, num_heads=4, num_layers=1, num_classes=2):
+    def __init__(self, num_layers, input_dim, projector_dim=256, bottleneck_dim=64, num_heads=4, num_layers_transformer=1, num_classes=2):
         super().__init__()
+        self.featurizer = Featurizer(num_layers, input_dim, projector_dim)
         self.bottleneck = nn.Sequential(
-            nn.Linear(input_dim, bottleneck_dim),
+            nn.Linear(projector_dim, bottleneck_dim),
             nn.ReLU(),
             nn.Dropout(0.5)
         )
         
         encoder_layer = nn.TransformerEncoderLayer(d_model=bottleneck_dim, nhead=num_heads, batch_first=True, dropout=0.5)
-        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers_transformer)
         
         # CLS token approach
         self.cls_token = nn.Parameter(torch.randn(1, 1, bottleneck_dim))
@@ -116,6 +141,7 @@ class TransformerPoolingNet(nn.Module):
         )
         
     def forward(self, x, mask=None):
+        x = self.featurizer(x)
         # Reduce dimensionality to prevent massive overfitting
         x = self.bottleneck(x)
         
@@ -138,15 +164,16 @@ class TransformerPoolingNet(nn.Module):
         return self.classifier(pooled)
 
 class BiGRUPoolingNet(nn.Module):
-    def __init__(self, input_dim=768, hidden_dim=128, num_layers=2, dropout=0.3, num_classes=2):
+    def __init__(self, num_layers, input_dim, projector_dim=256, hidden_dim=128, num_layers_gru=2, dropout=0.3, num_classes=2):
         super().__init__()
+        self.featurizer = Featurizer(num_layers, input_dim, projector_dim)
         self.gru = nn.GRU(
-            input_size=input_dim,
+            input_size=projector_dim,
             hidden_size=hidden_dim,
-            num_layers=num_layers,
+            num_layers=num_layers_gru,
             batch_first=True,
             bidirectional=True,
-            dropout=dropout if num_layers > 1 else 0.0
+            dropout=dropout if num_layers_gru > 1 else 0.0
         )
         
         self.attention = nn.Sequential(
@@ -163,6 +190,7 @@ class BiGRUPoolingNet(nn.Module):
         )
         
     def forward(self, x, mask=None):
+        x = self.featurizer(x)
         out, _ = self.gru(x)
         
         attn_logits = self.attention(out)
@@ -174,13 +202,14 @@ class BiGRUPoolingNet(nn.Module):
         return self.classifier(pooled)
 
 class NetVLADPoolingNet(nn.Module):
-    def __init__(self, input_dim=768, bottleneck_dim=64, num_clusters=2, num_classes=2):
+    def __init__(self, num_layers, input_dim, projector_dim=256, bottleneck_dim=64, num_clusters=2, num_classes=2):
         super().__init__()
+        self.featurizer = Featurizer(num_layers, input_dim, projector_dim)
         self.num_clusters = num_clusters
         self.dim = bottleneck_dim
         
         self.bottleneck = nn.Sequential(
-            nn.Linear(input_dim, bottleneck_dim),
+            nn.Linear(projector_dim, bottleneck_dim),
             nn.ReLU(),
             nn.Dropout(0.5)
         )
@@ -197,7 +226,8 @@ class NetVLADPoolingNet(nn.Module):
         )
         
     def forward(self, x, mask=None):
-        # x: [B, T, D]
+        x = self.featurizer(x)
+        # Reduce dimensionality
         x = self.bottleneck(x)
         B, T, D = x.size()
         
@@ -207,7 +237,6 @@ class NetVLADPoolingNet(nn.Module):
         soft_assign = self.conv(x_trans)
         
         if mask is not None:
-            # mask: [B, T] -> [B, 1, T]
             mask_exp = mask.unsqueeze(1)
             soft_assign = soft_assign.masked_fill(mask_exp == 0, -1e9)
             

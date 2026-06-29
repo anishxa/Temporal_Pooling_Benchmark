@@ -1,44 +1,72 @@
 # Temporal Pooling Benchmark
+This project compares different ways to group audio segments for detecting depression. We extract speech representations from pre-trained Self-Supervised Learning (SSL) models, and then we test different deep learning models to see which one works best for summarizing an entire 15-minute clinical interview.
 
-This paper compares different ways to group audio segments for detecting depression. We use WavLM to get audio features for 10 second clips, and then we test different deep learning models to see which one works best for summarizing an entire 15 minute clinical interview.
+This benchmark supports **6 SSL models** and **2 datasets** (E-DAIC and MODMA), and incorporates **semi-fine-tuning** via learnable layer aggregation.
 
-## How It Works
+---
 
-1. **Preprocessing**: We cut the long clinical audio files into small 10 second chunks.
-2. **Feature Extraction**: We pass each chunk through WavLM to get a 768 dimensional feature vector.
-3. **Temporal Pooling**: We group all the chunks for a single patient back together chronologically. Then, we pass them through a sequence model (like a Transformer or NetVLAD) to get a final prediction.
+## 1. Supported SSL Models
 
-## Models Evaluated
+The benchmark evaluates 6 state-of-the-art speech SSL models:
+1. **WavLM Base-Plus** (`microsoft/wavlm-base-plus`) - 13 layers, 768-d
+2. **WavLM Large** (`microsoft/wavlm-large`) - 25 layers, 1024-d
+3. **XLS-R-1B** (`facebook/wav2vec2-xls-r-1b`) - 49 layers, 1280-d
+4. **HuBERT Large** (`facebook/hubert-large-ls960-ft`) - 25 layers, 1024-d
+5. **Wav2Vec2 Robust** (`facebook/wav2vec2-large-robust`) - 25 layers, 1024-d
+6. **Data2Vec Audio Large** (`facebook/data2vec-audio-large-960h`) - 25 layers, 1024-d
 
-We test 6 different models:
-* Mean Pooling
-* Statistical Pooling
-* Self Attention
-* Bi-GRU with Attention
-* NetVLAD
-* Transformer Encoder
+---
 
-## How to Run
+## 2. Downstream Pooling Architectures
 
-First, extract the WavLM features locally:
+We test 6 different sequence models:
+* **Mean Pooling**
+* **Statistical Pooling** (Mean + Std + Min + Max)
+* **Self-Attention**
+* **Bi-GRU with Attention**
+* **NetVLAD**
+* **Transformer Encoder**
+
+---
+
+## 3. Semi-Fine-Tuning Methodology
+
+Instead of utilizing a single hardcoded layer, we implement **semi-fine-tuning** using a learnable weighted sum of hidden states (matching the featurizer behavior in benchmarks like SUPERB / EMO-SUPERB). 
+
+For each segment, we extract all hidden layers, pool them across the time dimension using `mean(dim=1)`, and save the representation as a `[num_layers, hidden_dim]` array. During downstream training, a learnable **`Featurizer`** module aggregates the layers dynamically:
+
+$$Representation = \sum_{i=1}^{L} \text{Softmax}(w_i) \cdot Layer_i$$
+
+where $w_i$ are learnable layer weights. The aggregated representation is projected to a uniform `projector_dim = 256` before being fed into the pooling architecture.
+
+---
+
+## 4. How to Run the Pipeline
+
+To run the feature extraction and benchmark training for all models and datasets automatically, execute the driver script:
 ```bash
-python3 extract_features.py
+./run_all_benchmarks.sh
 ```
 
-Then, train all 6 models and generate the final results table:
-```bash
-python3 run_benchmark.py
-```
+### Running Individual Configurations
 
-## Results
+If you want to run a specific model or dataset combination individually:
 
-Simple models like Statistical Pooling actually work best for small datasets, while massive models like Transformers tend to overfit.
+1. **Extract all-layer features**:
+   ```bash
+   python3 extract_features.py --model wavlm-base-plus --dataset edaic
+   ```
+   * Choices for `--model`: `wavlm-base-plus`, `wavlm-large`, `xls-r-1b`, `hubert-large`, `w2v2-robust`, `data2vec-large`.
+   * Choices for `--dataset`: `edaic`, `modma`.
 
-| Architecture | Accuracy | F1 Score | ROC AUC | Sensitivity | Specificity |
-|---|---|---|---|---|---|
-| Mean Pooling | 0.8696 | 0.6667 | 0.6471 | 0.5000 | 1.0000 |
-| Statistical Pooling | 0.8696 | 0.6667 | 0.7059 | 0.5000 | 1.0000 |
-| Bi-GRU + Attention | 0.7826 | 0.6154 | 0.6471 | 0.6667 | 0.8235 |
-| NetVLAD | 0.7391 | 0.5714 | 0.6176 | 0.6667 | 0.7647 |
-| Self Attention | 0.6957 | 0.5333 | 0.6275 | 0.6667 | 0.7059 |
-| Transformer Encoder | 0.6087 | 0.5263 | 0.6863 | 0.8333 | 0.5294 |
+2. **Train and evaluate**:
+   ```bash
+   python3 run_benchmark.py --model wavlm-base-plus --dataset edaic --epochs 40
+   ```
+
+---
+
+## 5. Output Results
+
+* Individual metrics are saved in `output/pooling_benchmark_{dataset}_{model}.csv`.
+* The final consolidated report is compiled at `output/temporal_pooling_summary.md` and `output/temporal_pooling_all_results.csv`.

@@ -24,12 +24,12 @@ def build_sequences(feature_dir, metadata_csv, split, max_len=150):
     if len(df_split) == 0:
         return None, None, None
         
-    X_path = os.path.join(feature_dir, f"X_{split}_mean.npy")
+    X_path = os.path.join(feature_dir, f"X_{split}_all_layers.npy")
     if not os.path.exists(X_path):
         print(f"Warning: {X_path} not found.")
         return None, None, None
         
-    X = np.load(X_path)
+    X = np.load(X_path) # Shape: [N, num_layers, feature_dim]
     
     # Group segments
     speaker_data = {}
@@ -61,9 +61,10 @@ def build_sequences(feature_dir, metadata_csv, split, max_len=150):
         labels.append(data["label"])
         
     num_sequences = len(sequences)
-    feature_dim = X.shape[1]
+    num_layers = X.shape[1]
+    feature_dim = X.shape[2]
     
-    padded_sequences = np.zeros((num_sequences, max_len, feature_dim), dtype=np.float32)
+    padded_sequences = np.zeros((num_sequences, max_len, num_layers, feature_dim), dtype=np.float32)
     masks = np.zeros((num_sequences, max_len), dtype=np.float32)
     
     for i, seq in enumerate(sequences):
@@ -73,10 +74,10 @@ def build_sequences(feature_dir, metadata_csv, split, max_len=150):
         
     return padded_sequences, np.array(labels), masks
 
-def get_dataloaders(layer=7, max_len=150, batch_size=16):
+def get_dataloaders(dataset_name="edaic", model_name="wavlm-base-plus", max_len=150, batch_size=16):
     base_dir = "."
-    feature_dir = os.path.join(base_dir, f"features/features_edaic_layer{layer}")
-    metadata_csv = os.path.join(base_dir, "utterance_table_edaic_segmented_split.csv")
+    feature_dir = os.path.join(base_dir, f"features/{dataset_name}/{model_name}")
+    metadata_csv = os.path.join(base_dir, f"utterance_table_{dataset_name}_segmented_split.csv")
     
     X_train, y_train, mask_train = build_sequences(feature_dir, metadata_csv, "train", max_len)
     X_val, y_val, mask_val = build_sequences(feature_dir, metadata_csv, "val", max_len)
