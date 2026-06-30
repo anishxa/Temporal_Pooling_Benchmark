@@ -15,7 +15,7 @@ for dataset in "${datasets[@]}"; do
   for model in "${models[@]}"; do
     echo ""
     echo "--------------------------------------------------------------------------"
-    echo "Processing Dataset: ${dataset.upper()} | Model: ${model}"
+    echo "Processing Dataset: ${dataset} | Model: ${model}"
     echo "--------------------------------------------------------------------------"
     
     # 1. Feature Extraction (All layers)

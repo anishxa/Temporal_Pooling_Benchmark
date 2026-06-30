@@ -9,6 +9,41 @@ import torchaudio
 from transformers import WavLMModel, Wav2Vec2Model, HubertModel, Data2VecAudioModel
 from tqdm import tqdm
 
+class SpeechDataset(torch.utils.data.Dataset):
+    def __init__(self, df):
+        self.file_paths = df["file_path"].tolist()
+        self.labels = df["label"].tolist()
+
+    def __len__(self):
+        return len(self.file_paths)
+
+    def __getitem__(self, idx):
+        path = self.file_paths[idx]
+        # Prepend WavLM_Depression_Detection path if needed
+        if path.startswith("code/") or path.startswith("data/") or path.startswith("raw_audio/") or path.startswith("edaic_segments/") or path.startswith("modma_segments/"):
+            path = os.path.join("../WavLM_Depression_Detection", path)
+            
+        label = self.labels[idx]
+        try:
+            waveform, sr = torchaudio.load(path)
+            if waveform.shape[0] == 2:
+                waveform = waveform.mean(dim=0, keepdim=True)
+            if sr != 16000:
+                waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
+            waveform = waveform.squeeze(0)
+            
+            # Keep exact crop/pad behavior of the benchmark
+            if waveform.shape[0] < 48000:
+                pad_len = 48000 - waveform.shape[0]
+                waveform = torch.cat([waveform, torch.zeros(pad_len)], dim=0)
+            elif waveform.shape[0] > 48000:
+                waveform = waveform[:48000]
+                
+            return waveform, label, path
+        except Exception as e:
+            # Fallback to zero waveform on error
+            return torch.zeros(48000), label, path
+
 def main():
     parser = argparse.ArgumentParser(description="All-Layer Feature Extraction for Temporal Pooling Benchmark")
     parser.add_argument(
@@ -71,40 +106,7 @@ def main():
     output_dir = f"features/{args.dataset}/{args.model}"
     os.makedirs(output_dir, exist_ok=True)
 
-    class SpeechDataset(torch.utils.data.Dataset):
-        def __init__(self, df):
-            self.file_paths = df["file_path"].tolist()
-            self.labels = df["label"].tolist()
 
-        def __len__(self):
-            return len(self.file_paths)
-
-        def __getitem__(self, idx):
-            path = self.file_paths[idx]
-            # Prepend WavLM_Depression_Detection path if needed
-            if path.startswith("code/") or path.startswith("data/") or path.startswith("raw_audio/") or path.startswith("edaic_segments/") or path.startswith("modma_segments/"):
-                path = os.path.join("../WavLM_Depression_Detection", path)
-                
-            label = self.labels[idx]
-            try:
-                waveform, sr = torchaudio.load(path)
-                if waveform.shape[0] == 2:
-                    waveform = waveform.mean(dim=0, keepdim=True)
-                if sr != 16000:
-                    waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
-                waveform = waveform.squeeze(0)
-                
-                # Keep exact crop/pad behavior of the benchmark
-                if waveform.shape[0] < 48000:
-                    pad_len = 48000 - waveform.shape[0]
-                    waveform = torch.cat([waveform, torch.zeros(pad_len)], dim=0)
-                elif waveform.shape[0] > 48000:
-                    waveform = waveform[:48000]
-                    
-                return waveform, label, path
-            except Exception as e:
-                # Fallback to zero waveform on error
-                return torch.zeros(48000), label, path
 
     df = pd.read_csv(metadata_csv)
     print(f"\n==========================================")
@@ -117,7 +119,7 @@ def main():
             
         print(f"Extracting {split} split ({len(df_split)} items)...")
         dataset = SpeechDataset(df_split)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
         
         X_accum = []
         y_accum = []
