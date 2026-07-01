@@ -3,7 +3,10 @@ import pandas as pd
 
 def main():
     output_dir = "output"
-    files = [f for f in os.listdir(output_dir) if f.startswith("pooling_benchmark_") and f.endswith(".csv")]
+    files = [
+        f for f in os.listdir(output_dir) 
+        if f.startswith("pooling_benchmark_") and f.endswith(".csv") and f != "pooling_benchmark_results.csv"
+    ]
     if not files:
         print("No benchmark result CSVs found.")
         return
