@@ -54,19 +54,29 @@ If you want to run a specific model or dataset combination individually:
 
 1. **Extract all-layer features**:
    ```bash
-   python3 extract_features.py --model wavlm-base-plus --dataset edaic
+   python3 codes/extract_features.py --model wavlm-base-plus --dataset edaic
    ```
    * Choices for `--model`: `wavlm-base-plus`, `wavlm-large`, `xls-r-1b`, `hubert-large`, `w2v2-robust`, `data2vec-large`.
    * Choices for `--dataset`: `edaic`, `modma`.
 
 2. **Train and evaluate**:
    ```bash
-   python3 run_benchmark.py --model wavlm-base-plus --dataset edaic --epochs 40
+   python3 codes/run_benchmark.py --model wavlm-base-plus --dataset edaic --epochs 40
    ```
 
 ---
 
-## 5. Output Results
+## 5. Directory Structure
+
+The project repository is structured as follows:
+*   **`codes/`**: Contains Python scripts for models (`models.py`), dataset loader (`dataset.py`), feature extraction (`extract_features.py`), running classifier benchmarks (`run_benchmark.py`), and result consolidation (`consolidate_results.py`).
+*   **`data/`**: Holds metadata tables for segment splits (`utterance_table_edaic_segmented_split.csv` and `utterance_table_modma_segmented_split.csv`).
+*   **`output/`**: Contains individual metric CSV files and the compiled summary report (`temporal_pooling_summary.md`).
+*   **`features/`**: (Auto-generated) Stores extracted intermediate speech representations.
+
+---
+
+## 6. Output Results
 
 * Individual metrics are saved in `output/pooling_benchmark_{dataset}_{model}.csv`.
 * The final consolidated report is compiled at `output/temporal_pooling_summary.md` and `output/temporal_pooling_all_results.csv`.
