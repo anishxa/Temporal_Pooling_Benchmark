@@ -7,13 +7,13 @@ This benchmark supports **6 SSL models** and **2 datasets** (E-DAIC and MODMA), 
 
 ## 1. Supported SSL Models
 
-The benchmark evaluates 6 state-of-the-art speech SSL models:
-1. **WavLM Base-Plus** (`microsoft/wavlm-base-plus`) - 13 layers, 768-d
-2. **WavLM Large** (`microsoft/wavlm-large`) - 25 layers, 1024-d
-3. **XLS-R-1B** (`facebook/wav2vec2-xls-r-1b`) - 49 layers, 1280-d
-4. **HuBERT Large** (`facebook/hubert-large-ls960-ft`) - 25 layers, 1024-d
-5. **Wav2Vec2 Robust** (`facebook/wav2vec2-large-robust`) - 25 layers, 1024-d
-6. **Data2Vec Audio Large** (`facebook/data2vec-audio-large-960h`) - 25 layers, 1024-d
+The benchmark evaluates 6 state-of-the-art speech SSL models, verifying that pre-training objective (rather than parameter scale) determines zero-shot transfer performance:
+1. **WavLM Base-Plus** (`microsoft/wavlm-base-plus`) - 13 layers, 768-d (**94M parameters**)
+2. **WavLM Large** (`microsoft/wavlm-large`) - 25 layers, 1024-d (**315M parameters**)
+3. **XLS-R-1B** (`facebook/wav2vec2-xls-r-1b`) - 49 layers, 1280-d (**1B parameters**)
+4. **HuBERT Large** (`facebook/hubert-large-ls960-ft`) - 25 layers, 1024-d (**315M parameters**)
+5. **Wav2Vec2 Robust** (`facebook/wav2vec2-large-robust`) - 25 layers, 1024-d (**315M parameters**)
+6. **Data2Vec Audio Large** (`facebook/data2vec-audio-large-960h`) - 25 layers, 1024-d (**315M parameters**)
 
 ---
 

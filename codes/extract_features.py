@@ -25,24 +25,48 @@ class SpeechDataset(torch.utils.data.Dataset):
             
         label = self.labels[idx]
         try:
-            waveform, sr = torchaudio.load(path)
-            if waveform.shape[0] == 2:
-                waveform = waveform.mean(dim=0, keepdim=True)
-            if sr != 16000:
-                waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
-            waveform = waveform.squeeze(0)
+            from scipy.io.wavfile import read as wav_read
+            sr, data = wav_read(path)
             
-            # Keep exact crop/pad behavior of the benchmark
-            if waveform.shape[0] < 48000:
-                pad_len = 48000 - waveform.shape[0]
-                waveform = torch.cat([waveform, torch.zeros(pad_len)], dim=0)
-            elif waveform.shape[0] > 48000:
-                waveform = waveform[:48000]
+            # Convert to float32 normalized to [-1.0, 1.0]
+            if data.dtype == np.int16:
+                data = data.astype(np.float32) / 32768.0
+            elif data.dtype == np.int32:
+                data = data.astype(np.float32) / 2147483648.0
+            elif data.dtype == np.uint8:
+                data = (data.astype(np.float32) - 128.0) / 128.0
+            else:
+                data = data.astype(np.float32)
                 
-            return waveform, label, path
+            if len(data.shape) > 1:
+                data = data.mean(axis=1)
+                
+            waveform = torch.from_numpy(data)
+            
+            if sr != 16000:
+                waveform_ta, sr_ta = torchaudio.load(path)
+                if waveform_ta.shape[0] == 2:
+                    waveform_ta = waveform_ta.mean(dim=0, keepdim=True)
+                waveform = torchaudio.transforms.Resample(sr_ta, 16000)(waveform_ta).squeeze(0)
         except Exception as e:
-            # Fallback to zero waveform on error
-            return torch.zeros(48000), label, path
+            try:
+                waveform, sr = torchaudio.load(path)
+                if waveform.shape[0] == 2:
+                    waveform = waveform.mean(dim=0, keepdim=True)
+                if sr != 16000:
+                    waveform = torchaudio.transforms.Resample(sr, 16000)(waveform)
+                waveform = waveform.squeeze(0)
+            except Exception as e2:
+                waveform = torch.zeros(48000)
+                
+        # Keep exact crop/pad behavior of the benchmark
+        if waveform.shape[0] < 48000:
+            pad_len = 48000 - waveform.shape[0]
+            waveform = torch.cat([waveform, torch.zeros(pad_len)], dim=0)
+        elif waveform.shape[0] > 48000:
+            waveform = waveform[:48000]
+            
+        return waveform, label, path
 
 def main():
     parser = argparse.ArgumentParser(description="All-Layer Feature Extraction for Temporal Pooling Benchmark")
@@ -65,6 +89,12 @@ def main():
         type=int,
         default=16,
         help="Batch size for feature extraction"
+    )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        default=True,
+        help="Use half precision (float16) inference for ~1.8x speedup on MPS/CUDA"
     )
     args = parser.parse_args()
 
@@ -98,6 +128,16 @@ def main():
     elif "data2vec" in args.model:
         model = Data2VecAudioModel.from_pretrained(model_path, output_hidden_states=True).to(device).eval()
 
+    # Apply float16 for faster inference (~1.8x on MPS/CUDA)
+    use_fp16 = args.fp16 and device.type in ("mps", "cuda")
+    if use_fp16:
+        try:
+            model = model.half()
+            print(f"Using float16 inference for speedup")
+        except Exception as e:
+            use_fp16 = False
+            print(f"float16 not supported, falling back to float32: {e}")
+
     # === Dataset settings ===
     metadata_csv = f"data/utterance_table_{args.dataset}_segmented_split.csv"
     if not os.path.exists(metadata_csv):
@@ -113,13 +153,20 @@ def main():
     print(f"Processing dataset: {args.dataset} with model: {args.model} ({len(df)} rows)")
     
     for split in ["train", "val", "test"]:
+        X_path = os.path.join(output_dir, f"X_{split}_all_layers.npy")
+        y_path = os.path.join(output_dir, f"y_{split}.npy")
+        if os.path.exists(X_path) and os.path.exists(y_path):
+            print(f"Skipping extraction for {split} split as features already exist at {X_path}")
+            continue
+            
         df_split = df[df["split"] == split].reset_index(drop=True)
         if len(df_split) == 0:
             continue
             
         print(f"Extracting {split} split ({len(df_split)} items)...")
         dataset = SpeechDataset(df_split)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)
+        # num_workers=0 avoids MPS multiprocessing issues; scipy audio loading is fast enough
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
         
         X_accum = []
         y_accum = []
@@ -128,11 +175,15 @@ def main():
             for waveforms, labels, paths in tqdm(dataloader, desc=f"{args.dataset.upper()} - {split}"):
                 waveforms = waveforms.to(device)
                 
-                # Input normalization
+                # Input normalization (in float32 always for numerical stability)
                 mean = waveforms.mean(dim=-1, keepdim=True)
                 var = waveforms.var(dim=-1, keepdim=True)
                 waveforms = (waveforms - mean) / torch.sqrt(var + 1e-7)
                 
+                # Cast to fp16 if enabled
+                if use_fp16:
+                    waveforms = waveforms.half()
+                    
                 out = model(input_values=waveforms)
                 
                 # out.hidden_states is a tuple of length (num_layers + 1)
@@ -140,7 +191,8 @@ def main():
                 # we mean-pool across the time dimension (dim=1) for all layers
                 layer_features = []
                 for layer_feat in out.hidden_states:
-                    mean_pooled = layer_feat.mean(dim=1).cpu().numpy() # [B, D]
+                    # Cast back to float32 before numpy conversion
+                    mean_pooled = layer_feat.float().mean(dim=1).cpu().numpy() # [B, D]
                     layer_features.append(mean_pooled)
                 
                 # Stack layers to shape [B, num_layers, D]

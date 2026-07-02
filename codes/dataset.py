@@ -22,7 +22,7 @@ def build_sequences(feature_dir, metadata_csv, split, max_len=150):
     df_split = df[df["split"] == split].reset_index(drop=True)
     
     if len(df_split) == 0:
-        return None, None, None
+        return None, None, None, None
         
     X_path = os.path.join(feature_dir, f"X_{split}_all_layers.npy")
     if not os.path.exists(X_path):
@@ -53,12 +53,18 @@ def build_sequences(feature_dir, metadata_csv, split, max_len=150):
     # Build sequences
     sequences = []
     labels = []
+    speaker_ids = []
     for spk_id, data in speaker_data.items():
         # Sort indices based on chronological sort_keys
         sorted_indices = sorted(range(len(data["sort_keys"])), key=lambda k: data["sort_keys"][k])
         sorted_feats = [data["feats"][idx] for idx in sorted_indices]
         sequences.append(np.array(sorted_feats))
         labels.append(data["label"])
+        
+        # Clean speaker ID to extract digits for integer format
+        digits = re.findall(r'\d+', str(spk_id))
+        spk_num = int(digits[0]) if digits else 0
+        speaker_ids.append(spk_num)
         
     num_sequences = len(sequences)
     num_layers = X.shape[1]
@@ -72,29 +78,33 @@ def build_sequences(feature_dir, metadata_csv, split, max_len=150):
         padded_sequences[i, :seq_len] = seq[:seq_len]
         masks[i, :seq_len] = 1.0
         
-    return padded_sequences, np.array(labels), masks
+    return padded_sequences, np.array(labels), masks, np.array(speaker_ids, dtype=np.int32)
 
 def get_dataloaders(dataset_name="edaic", model_name="wavlm-base-plus", max_len=150, batch_size=16):
     base_dir = "."
     feature_dir = os.path.join(base_dir, f"features/{dataset_name}/{model_name}")
     metadata_csv = os.path.join(base_dir, f"data/utterance_table_{dataset_name}_segmented_split.csv")
     
-    X_train, y_train, mask_train = build_sequences(feature_dir, metadata_csv, "train", max_len)
-    X_val, y_val, mask_val = build_sequences(feature_dir, metadata_csv, "val", max_len)
-    X_test, y_test, mask_test = build_sequences(feature_dir, metadata_csv, "test", max_len)
+    X_train, y_train, mask_train, spk_train = build_sequences(feature_dir, metadata_csv, "train", max_len)
+    X_val, y_val, mask_val, spk_val = build_sequences(feature_dir, metadata_csv, "val", max_len)
+    X_test, y_test, mask_test, spk_test = build_sequences(feature_dir, metadata_csv, "test", max_len)
     
     if X_train is None or X_test is None:
         raise FileNotFoundError(f"Feature files not found in {feature_dir}. Please extract them first.")
         
-    # Combine Train + Val for full training
-    X_train_all = np.concatenate([X_train, X_val], axis=0) if X_val is not None else X_train
-    y_train_all = np.concatenate([y_train, y_val], axis=0) if y_val is not None else y_train
-    mask_train_all = np.concatenate([mask_train, mask_val], axis=0) if mask_val is not None else mask_train
+    train_ds = TensorDataset(torch.tensor(X_train), torch.tensor(y_train).long(), torch.tensor(mask_train), torch.tensor(spk_train).int())
     
-    train_ds = TensorDataset(torch.tensor(X_train_all), torch.tensor(y_train_all).long(), torch.tensor(mask_train_all))
-    test_ds = TensorDataset(torch.tensor(X_test), torch.tensor(y_test).long(), torch.tensor(mask_test))
+    if X_val is not None:
+        val_ds = TensorDataset(torch.tensor(X_val), torch.tensor(y_val).long(), torch.tensor(mask_val), torch.tensor(spk_val).int())
+        val_loader = torch.utils.data.DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+    else:
+        # Fallback to test loader if val is not available
+        val_ds = TensorDataset(torch.tensor(X_test), torch.tensor(y_test).long(), torch.tensor(mask_test), torch.tensor(spk_test).int())
+        val_loader = torch.utils.data.DataLoader(val_ds, batch_size=batch_size, shuffle=False)
+        
+    test_ds = TensorDataset(torch.tensor(X_test), torch.tensor(y_test).long(), torch.tensor(mask_test), torch.tensor(spk_test).int())
     
     train_loader = torch.utils.data.DataLoader(train_ds, batch_size=batch_size, shuffle=True)
     test_loader = torch.utils.data.DataLoader(test_ds, batch_size=batch_size, shuffle=False)
     
-    return train_loader, test_loader, y_train_all
+    return train_loader, val_loader, test_loader, y_train
