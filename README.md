@@ -43,10 +43,19 @@ where $w_i$ are learnable layer weights. The aggregated representation is projec
 
 ## 4. How to Run the Pipeline
 
-To run the feature extraction and benchmark training for all models and datasets automatically, execute the driver script:
-```bash
-./run_all_benchmarks.sh
-```
+### Unified Runs
+
+1. **Run the full benchmark**:
+   To automatically run feature extraction and benchmark training for all 6 models, 2 datasets, 6 heads, and 3 pooling variants:
+   ```bash
+   ./run_all_benchmarks.sh
+   ```
+
+2. **Run a fast subset (Option B)**:
+   To run a streamlined subset of the grid (evaluating WavLM Base-Plus and Wav2Vec2 Robust on both datasets using Bi-GRU and Transformer Encoder heads across seeds 13, 42, and 87):
+   ```bash
+   ./run_fast_subset.sh
+   ```
 
 ### Running Individual Configurations
 
@@ -62,6 +71,12 @@ If you want to run a specific model or dataset combination individually:
 2. **Train and evaluate**:
    ```bash
    python3 codes/run_benchmark.py --model wavlm-base-plus --dataset edaic --epochs 40
+   ```
+
+3. **Consolidate results**:
+   To compile all individual run metrics into the final markdown report (`output/temporal_pooling_summary.md`):
+   ```bash
+   python3 codes/consolidate_results.py
    ```
 
 ---
