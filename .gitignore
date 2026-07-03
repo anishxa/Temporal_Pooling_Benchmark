@@ -2,5 +2,9 @@ features/
 edaic_segments/
 __pycache__/
 .DS_Store
-*.csv
-output/
+
+# Ignore intermediate/individual predictions and weight files
+output/predictions_*.csv
+output/layer_weights_*_seed*.npy
+output/pooling_benchmark_*.csv
+output/logs/

@@ -1,0 +1,25 @@
+Dataset,SSL_Model,Architecture,Variant,F1_mean,F1_std
+edaic,wavlm-base-plus,Bi-GRU + Attention,learned,0.40505899329428735,0.046872325038174276
+edaic,wavlm-base-plus,Bi-GRU + Attention,uniform,0.39829059829059826,0.052353479764490785
+edaic,wavlm-base-plus,Bi-GRU + Attention,fixed_sweep,0.34137426900584794,0.02483229203430268
+edaic,wavlm-base-plus,Transformer Encoder,learned,0.41871921182266,0.006966569272773859
+edaic,wavlm-base-plus,Transformer Encoder,uniform,0.41871921182266,0.006966569272773859
+edaic,wavlm-base-plus,Transformer Encoder,fixed_sweep,0.4481481481481482,0.040908744508100954
+edaic,w2v2-robust,Bi-GRU + Attention,learned,0.375,0.0
+edaic,w2v2-robust,Bi-GRU + Attention,uniform,0.375,0.0
+edaic,w2v2-robust,Bi-GRU + Attention,fixed_sweep,0.3928571428571428,0.025253813613805232
+edaic,w2v2-robust,Transformer Encoder,learned,0.40284619594964416,0.015481265050608602
+edaic,w2v2-robust,Transformer Encoder,uniform,0.4137931034482758,0.0
+edaic,w2v2-robust,Transformer Encoder,fixed_sweep,0.3784113060428849,0.052578532577582326
+modma,wavlm-base-plus,Bi-GRU + Attention,learned,0.1111111111111111,0.15713484026367722
+modma,wavlm-base-plus,Bi-GRU + Attention,uniform,0.1111111111111111,0.15713484026367722
+modma,wavlm-base-plus,Bi-GRU + Attention,fixed_sweep,0.5452380952380952,0.1934587911025893
+modma,wavlm-base-plus,Transformer Encoder,learned,0.1111111111111111,0.15713484026367722
+modma,wavlm-base-plus,Transformer Encoder,uniform,0.1111111111111111,0.15713484026367722
+modma,wavlm-base-plus,Transformer Encoder,fixed_sweep,0.2857142857142857,0.0
+modma,w2v2-robust,Bi-GRU + Attention,learned,0.6666666666666666,0.0
+modma,w2v2-robust,Bi-GRU + Attention,uniform,0.6666666666666666,0.0
+modma,w2v2-robust,Bi-GRU + Attention,fixed_sweep,0.35714285714285715,0.10101525445522108
+modma,w2v2-robust,Transformer Encoder,learned,0.6666666666666666,0.0
+modma,w2v2-robust,Transformer Encoder,uniform,0.6666666666666666,0.0
+modma,w2v2-robust,Transformer Encoder,fixed_sweep,0.49523809523809526,0.14815570653432425
