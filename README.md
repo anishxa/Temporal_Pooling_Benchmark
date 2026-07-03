@@ -1,4 +1,4 @@
-# Temporal Pooling Benchmark
+# DEPOOL: Temporal Pooling Benchmark
 This project compares different ways to group audio segments for detecting depression. We extract speech representations from pre-trained Self-Supervised Learning (SSL) models, and then we test different deep learning models to see which one works best for summarizing an entire 15-minute clinical interview.
 
 This benchmark supports **6 SSL models** and **2 datasets** (E-DAIC and MODMA), and incorporates **semi-fine-tuning** via learnable layer aggregation.

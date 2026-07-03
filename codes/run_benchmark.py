@@ -110,7 +110,7 @@ def run_experiment(model_name, model, train_loader, val_loader, test_loader, cla
     return test_acc, test_f1, test_auc, test_sens, test_spec, (test_labels, test_preds, test_probs, test_spk_ids), best_val_f1
 
 def main():
-    parser = argparse.ArgumentParser(description="Run Temporal Pooling Benchmark under model and dataset settings")
+    parser = argparse.ArgumentParser(description="Run DEPOOL (Temporal Pooling Benchmark) under model and dataset settings")
     parser.add_argument(
         "--model",
         type=str,

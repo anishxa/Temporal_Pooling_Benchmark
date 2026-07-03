@@ -8,7 +8,7 @@ models=("wavlm-base-plus" "wavlm-large" "xls-r-1b" "hubert-large" "w2v2-robust" 
 datasets=("edaic" "modma")
 
 echo "=========================================================================="
-echo "          STARTING TEMPORAL POOLING BENCHMARK PIPELINE RUN"
+echo "          STARTING DEPOOL PIPELINE RUN"
 echo "=========================================================================="
 
 for dataset in "${datasets[@]}"; do
@@ -36,4 +36,4 @@ echo "          CONSOLIDATING FINAL RESULTS AND METRICS"
 echo "=========================================================================="
 python3 codes/consolidate_results.py
 
-echo "Temporal Pooling Benchmark Expansion pipeline execution finished successfully!"
+echo "DEPOOL pipeline execution finished successfully!"

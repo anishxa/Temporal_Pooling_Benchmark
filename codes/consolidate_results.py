@@ -41,7 +41,7 @@ def main():
     # 2. Generate Markdown Summary Report containing BOTH tables
     report_path = os.path.join(output_dir, "temporal_pooling_summary.md")
     with open(report_path, "w") as f:
-        f.write("# Temporal Pooling Benchmark: Expanded Comparison Report\n\n")
+        f.write("# DEPOOL: Expanded Comparison Report\n\n")
         f.write("This report summarizes the pooling architecture comparison across 6 speech SSL backbones on E-DAIC and MODMA.\n\n")
         
         # Section A: Primary Comparison Grid (Single-Seed Run, Seed 42)

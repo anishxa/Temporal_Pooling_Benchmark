@@ -69,7 +69,7 @@ class SpeechDataset(torch.utils.data.Dataset):
         return waveform, label, path
 
 def main():
-    parser = argparse.ArgumentParser(description="All-Layer Feature Extraction for Temporal Pooling Benchmark")
+    parser = argparse.ArgumentParser(description="All-Layer Feature Extraction for DEPOOL (Temporal Pooling Benchmark)")
     parser.add_argument(
         "--model",
         type=str,

@@ -1,4 +1,4 @@
-# Temporal Pooling Benchmark: Expanded Comparison Report
+# DEPOOL: Expanded Comparison Report
 
 This report summarizes the pooling architecture comparison across 6 speech SSL backbones on E-DAIC and MODMA.
 
