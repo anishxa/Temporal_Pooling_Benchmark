@@ -97,7 +97,10 @@ def main():
                 seed_accs = []
                 
                 for seed in seeds:
-                    pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head}_learned_seed{seed}.csv"
+                    head_safe = head.replace(" ", "_").replace("+", "plus")
+                    pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head_safe}_learned_seed{seed}.csv"
+                    if not os.path.exists(pred_file):
+                        pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head}_learned_seed{seed}.csv"
                     if os.path.exists(pred_file):
                         df_pred = pd.read_csv(pred_file)
                         y_true = df_pred["y_true"].values
@@ -162,7 +165,10 @@ def main():
                 for variant in variants:
                     f1s = []
                     for seed in seeds:
-                        res_file = f"{output_dir}/pooling_benchmark_{dataset}_{model}_{head}_{variant}_seed{seed}.csv"
+                        head_safe = head.replace(" ", "_").replace("+", "plus")
+                        res_file = f"{output_dir}/pooling_benchmark_{dataset}_{model}_{head_safe}_{variant}_seed{seed}.csv"
+                        if not os.path.exists(res_file):
+                            res_file = f"{output_dir}/pooling_benchmark_{dataset}_{model}_{head}_{variant}_seed{seed}.csv"
                         if os.path.exists(res_file):
                             df_res = pd.read_csv(res_file)
                             f1s.append(df_res["F1 Score"].values[0])
@@ -197,7 +203,10 @@ def main():
                 key = f"{dataset}_{model}_{head}"
                 model_weights = []
                 for seed in seeds:
-                    weight_file = f"{output_dir}/layer_weights_{dataset}_{model}_{head}_learned_seed{seed}.npy"
+                    head_safe = head.replace(" ", "_").replace("+", "plus")
+                    weight_file = f"{output_dir}/layer_weights_{dataset}_{model}_{head_safe}_learned_seed{seed}.npy"
+                    if not os.path.exists(weight_file):
+                        weight_file = f"{output_dir}/layer_weights_{dataset}_{model}_{head}_learned_seed{seed}.npy"
                     if os.path.exists(weight_file):
                         w = np.load(weight_file)
                         model_weights.append(w)
@@ -270,7 +279,10 @@ def main():
                     pred_probs = []
                     
                     for seed in seeds:
-                        pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head}_learned_seed{seed}.csv"
+                        head_safe = head.replace(" ", "_").replace("+", "plus")
+                        pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head_safe}_learned_seed{seed}.csv"
+                        if not os.path.exists(pred_file):
+                            pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head}_learned_seed{seed}.csv"
                         if os.path.exists(pred_file):
                             df_pred = pd.read_csv(pred_file)
                             
@@ -316,7 +328,10 @@ def main():
         for model in models:
             for head in heads:
                 for seed in seeds:
-                    pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head}_learned_seed{seed}.csv"
+                    head_safe = head.replace(" ", "_").replace("+", "plus")
+                    pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head_safe}_learned_seed{seed}.csv"
+                    if not os.path.exists(pred_file):
+                        pred_file = f"{output_dir}/predictions_{dataset}_{model}_{head}_learned_seed{seed}.csv"
                     if os.path.exists(pred_file):
                         df_pred = pd.read_csv(pred_file)
                         y_true = df_pred["y_true"].values
