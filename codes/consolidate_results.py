@@ -66,32 +66,54 @@ def main():
 
         # Section B: Seed Sensitivity Analysis (3-Seed Robustness, matching Table IV in Paper)
         f.write("\n## 2. Seed Sensitivity Analysis (Multi-Seed Averages, matching Table IV in Paper)\n\n")
-        f.write("This table summarizes the mean and standard deviation across 3 random seeds (13, 42, 87) for the focal configurations:\n\n")
+        f.write("This table summarizes the mean and standard deviation across 3 random seeds (13, 42, 87) for the focal configurations, computed dynamically from authentic model prediction files:\n\n")
         
-        f.write("### Dataset: EDAIC\n\n")
-        f.write("#### Backbone SSL Model: `w2v2-robust`\n\n")
-        f.write("| Pooling Architecture | Accuracy | F1 Score | ROC AUC | Sensitivity (MDD) | Specificity (HC) |\n")
-        f.write("| :--- | :---: | :---: | :---: | :---: | :---: |\n")
-        f.write("| Transformer Encoder | 0.3043 ± 0.0870 | 0.4056 ± 0.0164 | 0.5576 ± 0.0710 | 0.9167 ± 0.1667 | 0.0882 ± 0.1765 |\n")
-        f.write("| Bi-GRU + Attention | 0.5000 ± 0.1304 | 0.3884 ± 0.0268 | 0.5404 ± 0.0347 | 0.6250 ± 0.2500 | 0.4559 ± 0.2647 |\n\n")
-        
-        f.write("#### Backbone SSL Model: `wavlm-base-plus`\n\n")
-        f.write("| Pooling Architecture | Accuracy | F1 Score | ROC AUC | Sensitivity (MDD) | Specificity (HC) |\n")
-        f.write("| :--- | :---: | :---: | :---: | :---: | :---: |\n")
-        f.write("| Bi-GRU + Attention | 0.5543 ± 0.1788 | 0.4576 ± 0.1151 | 0.6103 ± 0.0627 | 0.6667 ± 0.0000 | 0.5147 ± 0.2419 |\n")
-        f.write("| Transformer Encoder | 0.4457 ± 0.2141 | 0.4317 ± 0.0269 | 0.6152 ± 0.0232 | 0.7917 ± 0.2500 | 0.3235 ± 0.3767 |\n\n")
-        
-        f.write("### Dataset: MODMA\n\n")
-        f.write("#### Backbone SSL Model: `w2v2-robust`\n\n")
-        f.write("| Pooling Architecture | Accuracy | F1 Score | ROC AUC | Sensitivity (MDD) | Specificity (HC) |\n")
-        f.write("| :--- | :---: | :---: | :---: | :---: | :---: |\n")
-        f.write("| Bi-GRU + Attention | 0.5250 ± 0.0500 | 0.6786 ± 0.0238 | 0.5900 ± 0.0945 | 1.0000 ± 0.0000 | 0.0500 ± 0.1000 |\n\n")
-        
-        f.write("#### Backbone SSL Model: `wavlm-base-plus`\n\n")
-        f.write("| Pooling Architecture | Accuracy | F1 Score | ROC AUC | Sensitivity (MDD) | Specificity (HC) |\n")
-        f.write("| :--- | :---: | :---: | :---: | :---: | :---: |\n")
-        f.write("| Bi-GRU + Attention | 0.6250 ± 0.1893 | 0.3056 ± 0.4194 | 0.6100 ± 0.2049 | 0.2500 ± 0.3786 | 1.0000 ± 0.0000 |\n")
-        f.write("| Transformer Encoder | 0.5250 ± 0.0500 | 0.2500 ± 0.3191 | 0.5300 ± 0.1194 | 0.3000 ± 0.4761 | 0.7500 ± 0.5000 |\n\n")
+        from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix
+
+        datasets = ["edaic", "modma"]
+        models = ["wavlm-base-plus", "w2v2-robust"]
+        heads = ["Bi-GRU + Attention", "Transformer Encoder"]
+        seeds = [13, 42, 87]
+
+        for ds in datasets:
+            f.write(f"### Dataset: {ds.upper()}\n\n")
+            for model in models:
+                f.write(f"#### Backbone SSL Model: `{model}`\n\n")
+                f.write("| Pooling Architecture | Accuracy | F1 Score | ROC AUC | Sensitivity (MDD) | Specificity (HC) |\n")
+                f.write("| :--- | :---: | :---: | :---: | :---: | :---: |\n")
+                
+                for head in heads:
+                    head_safe = head.replace(" ", "_").replace("+", "plus")
+                    accs, f1s, aucs, sens_list, spec_list = [], [], [], [], []
+                    
+                    for seed in seeds:
+                        pred_file = f"{output_dir}/predictions_{ds}_{model}_{head_safe}_learned_seed{seed}.csv"
+                        if os.path.exists(pred_file):
+                            df_p = pd.read_csv(pred_file)
+                            yt = df_p["y_true"].values
+                            yp = df_p["y_pred"].values
+                            yb = df_p["y_prob"].values
+                            
+                            acc = accuracy_score(yt, yp)
+                            f1 = f1_score(yt, yp, zero_division=0)
+                            try:
+                                auc = roc_auc_score(yt, yb)
+                            except:
+                                auc = 0.5
+                                
+                            cm = confusion_matrix(yt, yp, labels=[0, 1])
+                            sens = cm[1, 1] / (cm[1, 1] + cm[1, 0]) if (cm[1, 1] + cm[1, 0]) > 0 else 0.0
+                            spec = cm[0, 0] / (cm[0, 0] + cm[0, 1]) if (cm[0, 0] + cm[0, 1]) > 0 else 0.0
+                            
+                            accs.append(acc)
+                            f1s.append(f1)
+                            aucs.append(auc)
+                            sens_list.append(sens)
+                            spec_list.append(spec)
+                    
+                    if f1s:
+                        f.write(f"| {head} | {np.mean(accs):.4f} ± {np.std(accs):.4f} | {np.mean(f1s):.4f} ± {np.std(f1s):.4f} | {np.mean(aucs):.4f} ± {np.std(aucs):.4f} | {np.mean(sens_list):.4f} ± {np.std(sens_list):.4f} | {np.mean(spec_list):.4f} ± {np.std(spec_list):.4f} |\n")
+                f.write("\n")
 
     print(f"Consolidated summary report successfully written to {report_path}")
 
