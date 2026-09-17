@@ -95,3 +95,11 @@ The project repository is structured as follows:
 
 * Individual metrics are saved in `output/pooling_benchmark_{dataset}_{model}.csv`.
 * The final consolidated report is compiled at `output/temporal_pooling_summary.md` and `output/temporal_pooling_all_results.csv`.
+
+---
+
+## 7. What Backs Which Table
+
+* **Tables II & III (Primary Comparison Grid)**: Built from `output/temporal_pooling_all_results.csv`, which contains the full 72-cell evaluation grid (6 SSL backbones × 6 pooling architectures × 2 corpora) under single-seed evaluation.
+* **Table IV & Confidence Intervals**: Derived from `output/subset_ci.csv` and the per-prediction CSV files (`output/predictions_*.csv`) across 3 random seeds (13, 42, 87) for the focal subset (WavLM-Base-Plus and Wav2Vec2-Robust with Bi-GRU + Attention and Transformer Encoder). Per-prediction CSV files were retained only for the focal subset cells, not for all 72 cells in the primary grid.
+

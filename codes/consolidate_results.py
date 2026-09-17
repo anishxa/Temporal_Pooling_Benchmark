@@ -19,24 +19,29 @@ def main():
         print("No benchmark result CSVs found.")
         return
 
-    # 1. Compile the Primary Grid (Single-Seed Run)
-    # The original single-run files do not contain "_seed" in their filename
-    single_files = [f for f in all_files if "_seed" not in f]
-    single_dfs = []
-    for file in single_files:
-        df = pd.read_csv(os.path.join(output_dir, file))
-        if "Featurizer_Type" not in df.columns:
-            df["Featurizer_Type"] = "learned"
-        single_dfs.append(df)
-    
-    if single_dfs:
-        single_raw = pd.concat(single_dfs, ignore_index=True)
-        single_grid = single_raw[single_raw["Featurizer_Type"] == "learned"].copy()
-        single_grid.to_csv(os.path.join(output_dir, "temporal_pooling_all_results.csv"), index=False)
-        print(f"Consolidated single-seed results saved to output/temporal_pooling_all_results.csv")
+    # 1. Compile/Load the Primary Grid (Single-Seed Run)
+    all_results_csv = os.path.join(output_dir, "temporal_pooling_all_results.csv")
+    if os.path.exists(all_results_csv):
+        single_grid = pd.read_csv(all_results_csv)
+        print(f"Loaded single-seed results from {all_results_csv}")
     else:
-        single_grid = None
-        print("Warning: No single-seed files found.")
+        # The original single-run files do not contain "_seed" in their filename
+        single_files = [f for f in all_files if "_seed" not in f]
+        single_dfs = []
+        for file in single_files:
+            df = pd.read_csv(os.path.join(output_dir, file))
+            if "Featurizer_Type" not in df.columns:
+                df["Featurizer_Type"] = "learned"
+            single_dfs.append(df)
+        
+        if single_dfs:
+            single_raw = pd.concat(single_dfs, ignore_index=True)
+            single_grid = single_raw[single_raw["Featurizer_Type"] == "learned"].copy()
+            single_grid.to_csv(all_results_csv, index=False)
+            print(f"Consolidated single-seed results saved to {all_results_csv}")
+        else:
+            single_grid = None
+            print("Warning: No single-seed files found.")
 
     # 2. Generate Markdown Summary Report containing BOTH tables
     report_path = os.path.join(output_dir, "temporal_pooling_summary.md")
